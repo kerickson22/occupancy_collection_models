@@ -18,14 +18,34 @@ Preprint available at https://www.biorxiv.org/content/10.1101/2021.01.06.425644v
 - **flagged_coordinate_data.csv**: A csv file of occurrence records where the county name in the county field (from the GBIF occurrence data) did not match the geographically assigned county (from data processing). 4 columns: gbifID(the unique identifier assigned by GBIF to each occurrence record), county(the county name as recorded in GBIF), geo_county(the name of the GADM county in which the occurrence was determined to fall based on coordinates), FLAG("FLAG" means that the county and geo_county do not match and this occurrence record should be removed from the analysis, "" means that the county and geo_county do match and this occurrence record should not be removed from analysis
 - **incorrectYearsCollectors.csv**: CSV file created by examining occurrences with collection years that were potentially outside of the realm of realistic collection years for a particular collector (i.e. after the known death date of a collector, or several years before or after other collections by a collector) 4 columns: GBIF_ID (the unique identifier assigned by GBIF to each occurrence record), CorrectedYear(either: the corrected year for a given occurrence record based on verification by looking at the herbarium sheet, "" to indicate that no correction is needed, or FLAG to indicate that an occurrence record should not be used in the analysis because the date was not verifiable), CorrectedCollector(either: the corrected collector name for a given occurrence record based on verification by looking at the herbarium sheet, "" to indicate that no correction was needed, or FLAG to indicate that an occurrence record should be removed from the analysis since the collector name could not be verified), Notes (links to herbarium specimen sheets)
 - **listCollectors_refined.csv**:A lookup table that includes collector names that were corrected and cleaned using openRefine. 3 columns: Column: numeric rownames for each occurrence, gbifID(the unique identifier assigned by GBIF to each occurrence record), recordedBy (the corrected collector names)
+-**unit_cov2.RData**: Site covariates
+
+Each folder has its own folder that contains information about collectors of that species (*collectors_of_species.RData*), detection data from the full data set (*surv_cov.RData*) and detection data that has been filtered (*surv_cov3.RData*)
 - **MANIND\**
   + **collectors_of_species.RData**
   + **surv_cov.RData**
   + **surv_cov3.RData**
 - **METTOX\**
+  + **collectors_of_species.RData**
+  + **surv_cov.RData**
+  + **surv_cov3.RData**
 - **RHUCOP\**
+  + **collectors_of_species.RData**
+  + **surv_cov.RData**
+  + **surv_cov3.RData**
 - **SCHTER\**
+  + **collectors_of_species.RData**
+  + **surv_cov.RData**
+  + **surv_cov3.RData**
 - **TOXPUB\**
+  + **collectors_of_species.RData**
+  + **surv_cov.RData**
+  + **surv_cov3.RData**
 - **TOXRAD\**
+  + **collectors_of_species.RData**
+  + **surv_cov.RData**
+  + **surv_cov3.RData**
 - **TOXVER\**
--**unit_cov2.RData**
+  + **collectors_of_species.RData**
+  + **surv_cov.RData**
+  + **surv_cov3.RData**
