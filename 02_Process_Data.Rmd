@@ -1,0 +1,1076 @@
+---
+title: "2Process Data"
+output: html_notebook
+---
+
+This script assumes you have run `1_Download_Data.R` 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(sp)
+library(rgeos)
+library(wiqid)
+memory.limit(memory.limit() *2^30) #on Windows computer
+sessionInfo()
+```
+
+
+##1. Load Florida Tracheophytes occurrences
+```{r, load Tracheophyte data}
+load("./Raw Data/Tracheophytes with Coordinates/tracheophytes_coords.RData")
+load("./Raw Data/Tracheophytes without Coordinates/tracheophytes_nocoords.RData")
+load("./florida_state.RData")
+load("./florida.RData")
+
+```
+
+Some ancillary functions that will be used later in the script: 
+
+```{r, ancillary functions}
+renameCounties <- function(df) {
+
+
+df$county <- gsub(df$county, pattern='(', replacement='', fixed=T)
+df$county <- gsub(df$county, pattern=')', replacement='', fixed=T)
+df$county <- gsub(df$county, pattern=' County', replacement='', fixed=T)
+df$county <- gsub(df$county, pattern='County of ', replacement='')
+df$county <- gsub(df$county, pattern=' Cty.', replacement='')
+df$county <- gsub(df$county, pattern=' Cty', replacement='')
+df$county <- gsub(df$county, pattern=' Co.', replacement='')
+df$county <- gsub(df$county, pattern='Ste ', replacement='Saint ')
+df$county <- gsub(df$county, pattern='St. ', replacement='Saint ')
+df$county <- gsub(df$county, pattern='St ', replacement='Saint ')
+df$county <- gsub(df$county, pattern='[', replacement='', fixed=T)
+df$county <- gsub(df$county, pattern=']', replacement='', fixed=T)
+df$county <- gsub(df$county, pattern=' FL', replacement='')
+
+df$county <- tolower(df$county)
+df$county <- capwords(df$county)
+
+df$county <- gsub(df$county, pattern='Dade', replacement='Miami-Dade', fixed=T)
+df$county <- gsub(df$county, pattern='Miami-dade', replacement='Miami-Dade', fixed=T)
+df$county <- gsub(df$county, pattern='Union County', replacement='Union', fixed=T)
+df$county <- gsub(df$county, pattern='Hillsboro', replacement='Hillsborough', fixed=T)
+df$county <- gsub(df$county, pattern='De Soto', replacement='Desoto', fixed=T)
+df$county <- gsub(df$county, pattern='Walto', replacement='Walton', fixed=T)
+df$county <- gsub(df$county, pattern='Monre', replacement='Monroe', fixed=T)
+df$county <- gsub(df$county, pattern='Liberity', replacement='Liberty', fixed=T)
+df$county <- gsub(df$county, pattern='Hillsborongh', replacement='Hillsborough', fixed=T)
+df$county <- gsub(df$county, pattern='Waukulla', replacement='Wakulla', fixed=T)
+df$county <- gsub(df$county, pattern='Alachuca', replacement='Alachua', fixed=T)
+df$county <- gsub(df$county, pattern='Wahulla', replacement='Wakulla', fixed=T)
+df$county <- gsub(df$county, pattern='Semiole', replacement='Seminole', fixed=T)
+df$county <- gsub(df$county, pattern='Hillsboroughugh', replacement='Hillsborough', fixed=T)
+df$county <- gsub(df$county, pattern='Waltonn', replacement='Walton', fixed=T)
+df$county <- gsub(df$county, pattern='Hillsboroughngh', replacement='Hillsborough', fixed=T)
+df$county <- gsub(df$county, pattern='Alachue', replacement='Alachua', fixed=T)
+df$county <- gsub(df$county, pattern='Miami Miami-Dade', replacement='Miami-Dade', fixed=T)
+df$county <- gsub(df$county, pattern='Gadsen', replacement='Gadsden', fixed=T)
+df$county <- gsub(df$county, pattern='Gasden', replacement='Gadsden', fixed=T)
+df$county <- gsub(df$county, pattern='Wapulla', replacement='Wakulla', fixed=T)
+df$county <- gsub(df$county, pattern='Duvall', replacement='Duval', fixed=T)
+df$county <- gsub(df$county, pattern='Escambra', replacement='Escambia', fixed=T)
+df$county <- gsub(df$county, pattern='Florida Lake', replacement='Lake', fixed=T)
+df$county <- gsub(df$county, pattern='Florida Gulf', replacement='Gulf', fixed=T)
+df$county <- gsub(df$county, pattern='Colombia', replacement='Columbia', fixed=T)
+df$county <- gsub(df$county, pattern='Wakullla', replacement='Wakulla', fixed=T)
+df$county <- gsub(df$county, pattern='Oskaloosa', replacement='Okaloosa', fixed=T)
+df$county <- gsub(df$county, pattern=',', replacement='', fixed=T)
+df$county <- gsub(df$county, pattern='Miami - Miami-Dade', replacement='Miami-Dade', fixed=T)
+df$county <- gsub(df$county, pattern='Calhoune,', replacement='Calhoun', fixed=T)
+df$county <- gsub(df$county, pattern='Suwanee,', replacement='Suwannee', fixed=T)
+df$county <- gsub(df$county, pattern='Poek', replacement='Polk', fixed=T)
+df$county <- gsub(df$county, pattern='Duvalole', replacement='Duval', fixed=T)
+df$county <- gsub(df$county, pattern='Liverty', replacement='Liberty', fixed=T)
+df$county <- gsub(df$county, pattern='Saint John', replacement='Saint Johns', fixed=T)
+df$county <- gsub(df$county, pattern='Saint Johnss', replacement='Saint Johns', fixed=T)
+df$county <- gsub(df$county, pattern='Franklin Florida United States', replacement='Franklin', fixed=T)
+df$county <- gsub(df$county, pattern='Miami', replacement='Miami-Dade', fixed=T)
+df$county <- gsub(df$county, pattern='Miami-Dade-Dade', replacement='Miami-Dade', fixed=T)
+df$county <- gsub(df$county, pattern='Miami-Dade-Dade', replacement='Miami-Dade', fixed=T)
+df$county <- gsub(df$county, pattern='Calhoune', replacement='Calhoun', fixed=T)
+df$county <- gsub(df$county, pattern='Suwanee', replacement='Suwannee', fixed=T)
+df$county <- gsub(df$county, pattern='Franklyn', replacement='Franklin', fixed=T)
+df$county <- gsub(df$county, pattern='Martin County', replacement = 'Martin', fixed=T)
+return(df)
+}
+
+
+compare <- function(this, that) {
+
+
+issues <- NULL
+
+for (i in 1:length(this)){
+  test<-agrep(this[i], that, ignore.case = TRUE)
+  if (length(test)>1) {
+    issues <- c(issues, as.character(this[i]))
+  }
+}
+
+return(issues)
+}
+
+printIssues <- function(issues, compareList) {
+for (i in 1:length(issues)) {
+print(agrep(issues[i], compareList, value=T, ignore.case = TRUE))
+print("...")
+}
+}
+
+```
+###  Records with coordinates : 
+    - Clip to Florida state polygon 
+    - Assign 'geo_county' as the county the point falls in 
+```{r, process records with coordinates, cache=T}
+#Assign coordinates and projection: 
+coordinates(tracheophytes_coords) <- c(134, 133)
+proj4string(tracheophytes_coords) <- CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0") 
+proj4string(florida_state) <- CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
+
+#Select only those records that fall within the state polygon 
+tracheophytes_coords <- tracheophytes_coords[florida_state,]
+
+#Assign counties to each of the records 
+
+#First, remove extra levels of 'county':
+tracheophytes_coords@data$county <- factor(tracheophytes_coords@data$county)
+
+
+#create a column called geo_county for storing the county of each record as determined by overlaying county level polygons 
+tracheophytes_coords[["geo_county"]]<-rep("NA", dim(tracheophytes_coords)[1])
+
+#Remove extraneous counties from florida shapefile
+florida@data$NAME_2 <- factor(florida@data$NAME_2)
+counties<-unique(florida@data$NAME_2) #There are 67 counties
+
+
+tracheophytes_coords@data$geo_county <- as.character(over(tracheophytes_coords, florida)$NAME_2)
+
+temp <- tracheophytes_coords@data
+nrow(temp)
+temp <- subset(temp, temp$county != "")
+nrow(temp)
+
+temp2 <-subset(temp, temp$county != temp$geo_county)
+temp3 <- temp2[, c("gbifID", "county", "geo_county")]
+write.csv(temp3, file="./Intermediate Data/check_coordinate_data.csv")
+
+flagged_coordinate_data <- read.csv("./Intermediate Data/flagged_coordinate_data.csv")
+
+temp <- subset(flagged_coordinate_data, flagged_coordinate_data$FLAG == "FLAG")
+
+to_discard <- temp$gbifID
+
+tracheophytes_coords <- subset(tracheophytes_coords, !(tracheophytes_coords$gbifID %in% to_discard))
+
+temp2 <- subset(tracheophytes_coords, tracheophytes_coords$county == "")
+
+write.csv(temp2, "./Intermediate Data/records_with_no_county.csv")
+temp3 <- subset(temp2, temp2$family == "Anacardiaceae")
+nrow(temp3)
+
+#assumption: don't worry about citizen scientist records that are missing a county field
+temp4 <- subset(temp3, temp3$basisOfRecord != "HUMAN_OBSERVATION")
+table(temp4$species)
+write.csv(temp4, "./Intermediate Data/anacardiaceae_records_with_no_county.csv")
+
+#There are now 148981 records of Tracheophytes with coordinates in the state of Florida that have been checked to discard records where 
+# the geographically assigned county doesn't match the county field. 
+
+save(tracheophytes_coords, file="./Intermediate Data/cleaned_tracheophytes_coords.RData")
+
+
+```
+    
+
+### Records without coordinates: 
+    - Clean county names
+    - Remove records from counties not in Florida or uncertain
+    - Assign 'geo_county' as the name of the county 
+    
+```{r, process records without coordinates, cache=T} 
+
+#Remove those records without state or county
+tracheophytes_nocoords <- subset(tracheophytes_nocoords, tracheophytes_nocoords$stateProvince != "")
+tracheophytes_nocoords <- subset(tracheophytes_nocoords, tracheophytes_nocoords$county != "")
+tracheophytes_nocoords <- subset(tracheophytes_nocoords, tracheophytes_nocoords$countryCode == "US")
+tracheophytes_nocoords$stateProvince <- factor(tracheophytes_nocoords$stateProvince) 
+
+unique(tracheophytes_nocoords$stateProvince)
+#There are two levels, florida and Florida 
+
+tracheophytes_nocoords$stateProvince <- "Florida"
+
+
+#rename counties 
+tracheophytes_nocoords <- renameCounties(tracheophytes_nocoords)
+countiesinList <- unique(tracheophytes_nocoords$county)
+
+#Check for additional county misnaming 
+issues2<- compare(countiesinList, countiesinList)
+printIssues(issues2, countiesinList)
+
+#Now only keep those records that are in legitimate counties 
+tracheophytes_nocoords <- subset(tracheophytes_nocoords, tracheophytes_nocoords$county %in% counties)
+
+#There are 255, 126 county-level records of Tracheophytes in Florida 
+
+
+#So the dimensions match that of tracheophyte_coords
+tracheophytes_nocoords[["geo_county"]]<-tracheophytes_nocoords$county
+
+save(tracheophytes_nocoords, file = "./Intermediate Data/cleaned_nocoords_data.RData")
+```
+### rbind records with coordinates and records without coordinates together
+```{r, combine records with and without coordinates back together, cache=T}
+
+tracheophytes_messyCollectors <- rbind(as.data.frame(tracheophytes_coords), tracheophytes_nocoords)
+rm(tracheophytes_coords)
+rm(tracheophytes_nocoords)
+
+save(tracheophytes_messyCollectors, file="./Intermediate Data/tracheophytes_messyCollectors.RData")
+```
+
+## 2a. Clean collector names using openRefine
+```{r use openRefine}
+load("./Intermediate Data/tracheophytes_messyCollectors.RData")
+
+listCollectors <- tracheophytes_messyCollectors[, c(1,71)]
+write.csv(listCollectors, file = "./Intermediate Data/listCollectors.csv")
+#Process data in openRefine the read in the file with the corrections: 
+
+
+listCollectors_refined <- read.csv("./Intermediate Data/listCollectors_refined.csv")
+#Because this was initially cleaned before some of the records were removed for having counties that don't match the geo_county, we need
+# to remove some of these: 
+
+IDs <- tracheophytes_messyCollectors$gbifID
+
+listCollectors_refined2 <- subset(listCollectors_refined, listCollectors_refined$gbifID %in% IDs)
+
+tracheophytes <- tracheophytes_messyCollectors
+
+tracheophytes$correctedCollector <- listCollectors_refined2$recordedBy
+
+
+```
+
+
+
+#3 Fix incorrect dates 
+
+```{r fix incorrect dates}
+
+
+
+#Start at tail ends of years, and work towards middle until find verified record that is the correct year. Goal: eliminate mistakes on either end. Currently not worrying about mistakes that still fall within lifespan of collector. 
+
+#Walter M. Buswell (professor at UMiami Dept of Botany in 40s)
+#His only Schinus record is from 1936. Also has a herbarium named after him. 
+
+#Robert Kenneth Godfrey (1911-2000). Also has a herbarium named after him.
+
+#Robert Kral was born in 1926
+
+
+#Daniel Bertram Ward (1928-2016)
+
+#K. A. Bradley  == Keith Bradley Alive
+
+#J. Beckner 
+
+#The issues that I found are in the csv file incoorectYearsCollectors.csv
+
+fixes <- read.csv("./Intermediate Data/incorrectYearsCollectors.csv")
+
+
+#Some other issues: There are some records that are NA for year and or collector
+#The two records of Schinus that have no year don't have years on their specimen sheet
+
+#Look at each occurrence record for Schinus to spot irregularities in collector or year or county 
+
+
+
+
+
+```
+
+# Implement corrections:
+```{r implement corrections, cache=T}
+
+
+tracheophytesClean <- tracheophytes
+
+tracheophytesClean$correctedYear <- tracheophytesClean$year
+                               
+
+
+
+#have to remove fixes for observations that are no longer in the data set 
+
+fixes2 <-subset(fixes, fixes$GBIF_ID %in% IDs)
+
+
+fixes2flags <- subset(fixes2, fixes2$CorrectedCollector == "FLAG" | fixes2$CorrectedYear == "FLAG")
+fixes2_tofix <- subset(fixes2, fixes2$CorrectedCollector != "FLAG" & fixes2$CorrectedYear != "FLAG")
+fixes2_tofix_years <- subset(fixes2_tofix, fixes2_tofix$CorrectedYear != "")
+fixes2_tofix_names <- subset(fixes2_tofix, fixes2_tofix$CorrectedCollector != "")
+
+for (i in 1:nrow(fixes2_tofix_years)) {
+  tracheophytesClean[which(tracheophytesClean$gbifID == fixes2_tofix_years$GBIF_ID[i]),]$correctedYear <- as.character(fixes2_tofix_years$CorrectedYear[i])
+}
+
+
+
+for (i in 1:nrow(fixes2_tofix_names)) {
+  tracheophytesClean[which(tracheophytesClean$gbifID == fixes2_tofix_names$GBIF_ID[i]),]$correctedCollector <- as.character(fixes2_tofix_names$CorrectedCollector[i])
+}
+
+
+#remove records where the year or collector are flagged: 
+
+toremove <- c(which(tracheophytesClean$correctedYear == "FLAG"), which(tracheophytesClean$correctedCollector == "FLAG"))
+
+tracheophytesClean <- subset(tracheophytesClean, !(tracheophytesClean$gbifID %in% toremove))
+
+toremove <- c(which(tracheophytesClean$correctedYear == "FLAG"), which(tracheophytesClean$correctedCollector == "FLAG"))
+
+
+tracheophytesClean <- subset(tracheophytesClean, !(tracheophytesClean$gbifID %in% toremove))
+tracheophytesCleanFixed <- tracheophytesClean
+
+save(tracheophytesCleanFixed, file ="./Intermediate Data/tracheophytesCleanFixed.RData")
+```
+
+
+#2c 
+```{r additional corrections, eval = FALSE}
+counties <- unique(florida@data$NAME_2)
+counties <- factor(counties) 
+
+load("./Intermediate Data/tracheophytesCleanFixed.RData")
+
+
+#collectors of Anacardiaceae
+temp <- subset(tracheophytesCleanFixed, tracheophytesCleanFixed$family == "Anacardiaceae")
+temp <- subset(temp, !is.na(temp$correctedCollector))
+temp <- subset(temp, !is.na(temp$geo_county))
+temp <- subset(temp, !is.na(temp$year))
+temp <- subset(temp, !is.na(temp$species))
+temp <- subset(temp, temp$species != "")
+temp <- subset(temp, temp$month != "")
+temp <- subset(temp, !is.na(temp$month))
+
+collectorsAna <- unique(temp$correctedCollector)
+collectorsAna <- factor(collectorsAna)
+
+#Tracheophyte occurrences by collectors of Anacardiaceae
+trach_by_ana <- subset(tracheophytesCleanFixed, tracheophytesCleanFixed$correctedCollector %in% collectorsAna)
+trach_by_ana <- subset(trach_by_ana, !is.na(trach_by_ana$geo_county))
+trach_by_ana <- subset(trach_by_ana, !is.na(trach_by_ana$year))
+trach_by_ana <- subset(trach_by_ana, !is.na(trach_by_ana$species))
+trach_by_ana <- subset(trach_by_ana, trach_by_ana$species != "")
+trach_by_ana <- subset(trach_by_ana, trach_by_ana$month != "")
+trach_by_ana <- subset(trach_by_ana, !is.na(trach_by_ana$month))
+
+#Check for obviously off dates:
+collectors <- NULL
+collectors$collector <- unique(trach_by_ana$correctedCollector)
+collectors <- as.data.frame(collectors)
+
+for(i in 1:nrow(collectors)) {
+  temp <- subset(trach_by_ana, trach_by_ana$correctedCollector == collectors$collector[i])
+  collectors$yearMin[i] <- min(temp$correctedYear)
+  collectors$yearMax[i] <- max(temp$correctedYear)
+  collectors$yearsActive[i] <- length(unique(temp$correctedYear))
+  cat("Collector ", i, " of 765 \n")
+}
+
+collectors$yearsRange <- as.numeric(collectors$yearMax) - as.numeric(collectors$yearMin)
+
+collectors <- collectors[order(-collectors$yearsRange),]
+
+
+#Which records are collected by citizen scientists?
+#institutionCode's associated with citizen Science
+#iNaturalist
+#""
+#naturgucker
+#Bioversity
+
+#basisOfRecord
+#"HUMAN_OBSERVATION" (but also pulls up some that are not? because of Natureserve)
+
+#collectionCode 
+
+#Fix any citizen_scientist names that were mistakenly corrected in openRefine
+
+trach_by_ana$citizenScience <- rep(0, nrow(trach_by_ana))
+trach_by_ana$correctedCollector <- as.character(trach_by_ana$correctedCollector)
+for(i in 1:nrow(trach_by_ana)){
+  if(trach_by_ana$basisOfRecord[i] == "HUMAN_OBSERVATION" & trach_by_ana$institutionCode[i] != "NTSRV") {
+  trach_by_ana$citizenScience[i] <-1
+  trach_by_ana$correctedCollector[i] <- trach_by_ana$recordedBy[i]
+  }
+  cat("Occurrence record ", i, " of 196611 \n")
+}
+
+temp <- subset(trach_by_ana, trach_by_ana$citizenScience == 0)
+
+save(trach_by_ana, file="./Intermediate Data/trach_by_ana_precleanedforyear.RData")
+
+
+
+
+
+
+
+#Check non-citizen-scientist collectors for incorrect collection dates
+collectors <- NULL
+collectors$collector <- unique(temp$correctedCollector)
+collectors <- as.data.frame(collectors)
+
+for(i in 1:nrow(collectors)) {
+  temp <- subset(trach_by_ana, trach_by_ana$correctedCollector == collectors$collector[i])
+  collectors$yearMin[i] <- min(temp$correctedYear)
+  collectors$yearMax[i] <- max(temp$correctedYear)
+  collectors$yearsActive[i] <- length(unique(temp$correctedYear))
+  cat("Collector ", i, " of 492 \n")
+}
+collectors$yearRange <- as.numeric(collectors$yearMax) - as.numeric(collectors$yearMin)
+collectors <- collectors[order(-collectors$yearRange),]
+
+
+
+gbifIDs <- unique(trach_by_ana$gbifID)
+correctedDates <- read.csv("./Intermediate Data/correctedDates2.csv")
+correctedDates <- subset(correctedDates, correctedDates$gbifID %in% gbifIDs)
+
+
+for (i in 1:nrow(correctedDates)) {
+  if(is.na(correctedDates$correctedYear[i])) {
+    trach_by_ana$correctedYear[which(trach_by_ana$gbifID == correctedDates$gbifID[i])] <- NA
+  }
+  if(correctedDates$correctedYear[i] !="" & !is.na(correctedDates$correctedYear[i])) {
+  trach_by_ana$correctedYear[which(trach_by_ana$gbifID == correctedDates$gbifID[i])] <- 
+    correctedDates$correctedYear[i] 
+  }
+   if(is.na(correctedDates$correctedCollector[i])) {
+    trach_by_ana$correctedCollector[which(trach_by_ana$gbifID == correctedDates$gbifID[i])] <-     NA
+  }
+  if(correctedDates$correctedCollector[i] !="" & 
+     !is.na(correctedDates$correctedCollector[i])){
+        trach_by_ana$correctedCollector[which(trach_by_ana$gbifID == correctedDates$gbifID[i])] <- 
+        correctedDates$correctedCollector[i]
+  }
+  cat("Correcting record ", i, " of ", nrow(correctedDates), "\n")
+}
+
+
+trach_by_ana$correctedYear[which(trach_by_ana$gbifID == "1457749789")] <- 2006
+trach_by_ana$correctedYear[which(trach_by_ana$gbifID == "1457830847")] <- 2004
+trach_by_ana$correctedYear[which(trach_by_ana$gbifID == "1322791374")] <- 1917
+trach_by_ana$correctedYear[which(trach_by_ana$gbifID == "1930250850")] <- 1915
+trach_by_ana$correctedYear[which(trach_by_ana$gbifID == "1930009961")] <- 1915
+trach_by_ana$correctedYear[which(trach_by_ana$gbifID == "122976884")] <- 1903
+trach_by_ana$correctedYear[which(trach_by_ana$gbifID == "123010331")] <- 1913
+trach_by_ana$correctedYear[which(trach_by_ana$gbifID == "123003387")] <- 1909
+
+
+#A. S. Hitchcock (record from 1890 and 1984)
+trach_by_ana$correctedYear[which(trach_by_ana$gbifID == "1500137176")] <- 1894
+#L. Arnold & E. West
+trach_by_ana$correctedYear[which(trach_by_ana$gbifID == "1457754104")] <- 1941
+trach_by_ana$correctedYear[which(trach_by_ana$gbifID == "1457813099")] <- 1936
+
+temp <- subset(trach_by_ana, trach_by_ana$family == "Anacardiaceae")
+collectorsAna <- unique(temp$correctedCollector)
+
+trach_by_ana <- subset(trach_by_ana, trach_by_ana$correctedCollector %in% collectorsAna)
+
+temp <- subset(trach_by_ana, trach_by_ana$citizenScience == 0)
+
+
+collectors <- NULL
+collectors$collector <- unique(temp$correctedCollector)
+collectors <- as.data.frame(collectors)
+
+for(i in 1:nrow(collectors)) {
+  temp <- subset(trach_by_ana, trach_by_ana$correctedCollector == collectors$collector[i])
+  collectors$yearMin[i] <- min(temp$correctedYear)
+  collectors$yearMax[i] <- max(temp$correctedYear)
+  collectors$yearsActive[i] <- length(unique(temp$correctedYear))
+  cat("Collector ", i, " of 492 \n")
+}
+collectors$yearRange <- as.numeric(collectors$yearMax) - as.numeric(collectors$yearMin)
+collectors <- collectors[order(-collectors$yearRange),]
+
+temp <- subset(trach_by_ana, trach_by_ana$correctedCollector == collectors$collector[34])
+sort(unique(temp$year))
+unique(temp$recordedBy)
+temp2 <- subset(temp, temp$year == 1879)
+temp2$gbifID
+
+save(trach_by_ana, file="./Intermediate Data/trach_by_ana_corrected.RData")
+nrow(trach_by_ana)
+#After this chunk, there are 196,351 records
+
+```
+
+
+```{r the deduplication, eval = F}
+
+
+trach_by_ana <- subset(trach_by_ana, as.numeric(trach_by_ana$correctedYear) > 1895)
+#Now there are 192,301 records 
+deduplicated <- NULL
+
+for (i in counties) { #for each county
+  temp <-subset(trach_by_ana, trach_by_ana$geo_county == i)
+  collectors_in_county <- unique(temp$correctedCollector)
+  for(j in  collectors_in_county) { #for each collector in that county
+    temp2 <- subset(temp, temp$correctedCollector == j)
+    years_active_in_county <- unique(temp2$correctedYear)
+    for(k in years_active_in_county) {
+      temp3 <-subset(temp2, temp2$correctedYear == k)
+      months_surveyed <- unique(temp3$month)
+      for (l in months_surveyed) {
+        temp4 <- subset(temp3, temp3$month == l)
+        species_surveyed <- unique(temp4$species)
+        for (m in species_surveyed) {
+          temp5 <- subset(temp4, temp4$species == m) 
+          deduplicated <- rbind(deduplicated, temp5[1,])
+          cat("County:", i, "Collector:", j, "Year:", k, "Month:", l,
+              "\n")
+        }
+      }
+    }
+  }
+  cat("Finished county", i,"\n")
+}
+
+save(deduplicated, file="deduplicated.RData")
+
+#Original deduplicated prior to cleaning years was 166640
+#Now with years and collectors cleaned it is 166230
+
+#Check range of date records 
+
+collectors <- NULL
+collectors$collector <- unique(deduplicated$correctedCollector)
+collectors <- as.data.frame(collectors)
+
+for(i in 1:nrow(collectors)) {
+  temp <- subset(deduplicated, deduplicated$correctedCollector == collectors$collector[i])
+  collectors$yearMin[i] <- min(temp$correctedYear)
+  collectors$yearMax[i] <- max(temp$correctedYear)
+  collectors$yearsActive[i] <- length(unique(temp$correctedYear))
+  cat("Collector ", i, " of 767 \n")
+}
+
+
+collectors$yearsRange <- as.numeric(collectors$yearMax) - as.numeric(collectors$yearMin)
+collectors <- collectors[order(-collectors$yearsRange),]
+
+
+
+```
+
+
+# Create detection history data 
+
+* No filter: All occurrence records 
+* Remove singletons: Check whether this is different from removing taxonomic specialists
+* Remove taxonomic specialists: Remove records from collectors who only collect one genus (that is not the genus of the focal species).
+* Remove non-interested collectors: Remove records from collectors who have never collected the focal species. 
+* Month filter: Remove records from months where the focal species was never collected (examine appropriateness of this)
+
+```{r, detection histories and filters, eval=F}
+
+#Load data
+load("./florida.RData")
+load("./deduplicated.RData")
+
+
+speciesList <- c("Mangifera indica", "Metopium toxiferum", "Rhus copallina", "Schinus terebinthifolia",
+                 "Toxicodendron pubescens", "Toxicodendron radicans", "Toxicodendron vernix")
+counties <- florida@data$NAME_2
+
+
+start_time <- Sys.time()
+for(speciesx in speciesList) {
+
+  surv_cov <- data.frame(matrix(ncol = 9, nrow = 0))
+  colnames(surv_cov) <- c("county", "year", "month", "collector",
+                                "prev_detected", "citizen_scientist", "num_species","num_genera", "h")
+  for (i in counties) {
+    temp <- subset(deduplicated, deduplicated$geo_county == i)
+    temp_collectors <- unique(temp$correctedCollector)
+    for(j in  temp_collectors){
+      temp2 <- subset(temp, temp$correctedCollector == j)
+      temp_years <- sort(unique(temp2$correctedYear))
+      for(k in temp_years) {
+        temp3 <- subset(temp2, temp2$correctedYear == k)
+        temp_months <- sort(unique(temp3$month))
+        for (l in temp_months) {
+          temp4 <- subset(temp3, temp3$month == l)
+          temp_species <- unique(temp4$species)
+          temp_genera <- unique(temp4$genus)
+          surv_cov_temp <- data.frame(county = i,
+                                      year = k,
+                                      month = l,
+                                      collector = j,
+                                      prev_detected = NA,
+                                      citizen_scientist = 0,
+                                      num_species = length(temp_species),
+                                      num_genera = length(temp_genera),
+                                      h=0)
+          if (speciesx %in% temp_species) {surv_cov_temp$h <- 1}
+          if (temp4$basisOfRecord[1] == "HUMAN_OBSERVATION" & temp4$institutionCode[1] != "NTSRV") {
+            surv_cov_temp$citizen_scientist <- 1
+          }
+          surv_cov<- rbind(surv_cov, surv_cov_temp)
+          cat("County:", i, "Collector:", j, "Year:", k, "Month:", l, "\n")
+        }
+      }
+    }
+  }
+  
+  surv_cov$county <- factor(surv_cov$county)
+  surv_cov$year <- factor(surv_cov$year)
+  surv_cov$month  <- factor(surv_cov$month)
+  surv_cov$collector <- factor(surv_cov$collector)
+  surv_cov$citizen_scientist <- factor(surv_cov$citizen_scientist)
+  surv_cov3 <- surv_cov
+  save(surv_cov3, file=paste0("./", speciesx, "/surv_cov3.RData"))
+}
+
+```
+
+
+# Gather INFO about collectors of species x #####
+
+```{r, collector covariates}
+for (speciesx in speciesList) {
+temp <- unique(deduplicated$correctedCollector)
+
+collectors_of_species <- data.frame(collector = temp,
+                                totalRecords  = rep(NA, length(temp)),
+                                totalSpecies  = rep(NA, length(temp)),
+                                totalGenera   = rep(NA, length(temp)),
+                                totalFamilies = rep(NA, length(temp)),
+                                collectedSpecies = rep(0, length(temp)),
+                                yearsActive   = rep(NA, length(temp)))
+
+for (i in 1:length(temp)) {
+  temp2 <- subset(deduplicated, deduplicated$correctedCollector == temp[i])
+  
+  collectors_of_species$totalRecords[i]  <- nrow(temp2)
+  collectors_of_species$totalSpecies[i]  <- length(unique(temp2$species))
+  collectors_of_species$totalGenera[i]   <- length(unique(temp2$genus))
+  collectors_of_species$totalFamilies[i] <- length(unique(temp2$family))
+  collectors_of_species$yearsActive[i]   <- 
+    length(unique(temp2$correctedYear))
+  if(speciesx %in% temp2$species) {collectors_of_species$collectedSpecies[i] <- 1}
+  cat("Collector ", i, " of ", length(temp), "\n")
+}
+
+save(collectors_of_species,
+     file=paste0("./", speciesx, "/collectors_of_species.RData"))
+}
+
+```
+
+
+
+# FILTRATION #####
+* No filter: All occurrence records 
+* Remove singletons: Check whether this is different from removing taxonomic specialists
+* Remove taxonomic specialists: Remove records from collectors who only collect one genus (that is not the genus of the focal species).
+* Remove non-interested collectors: Remove records from collectors who have never collected the focal species. 
+* Month filter: Remove records from months where the focal species was never collected (examine appropriateness of this)
+```{r, filtration, eval=F}
+
+for (speciesx in speciesList) {
+  load(paste0("./", speciesx, "/surv_cov3.RData"))
+  load(paste0("./", speciesx, "/collectors_of_species.RData"))
+  
+  #Filter out surveys where collectors only collected one species (unless it's a focal species)
+  not_singletons <- subset(collectors_of_species, collectors_of_species$totalSpecies>1)
+  not_single_collectors <- unique(not_singletons$collector)
+  surv_cov1 <- subset(surv_cov, surv_cov$h==1 |(surv_cov$collector %in% not_single_collectors))
+  save(surv_cov1,
+       file = paste0("./", speciesx, "/surv_cov1.RData"))
+  
+   #Genus filter (Remove taxonomic specialists):
+  temp <- subset(collectors_of_species, collectors_of_species$totalGenera >1 |
+                   collectors_of_species$collectedSpecies ==1)
+  temp2 <- unique(temp$collector)
+  surv_cov_genus <- subset(surv_cov1, surv_cov1$collector %in% temp2)
+  save(surv_cov_genus,
+       file = paste0("./", speciesx, "/surv_cov_genus.RData"))
+  
+  #Species filter: 
+  temp <- subset(deduplicated, deduplicated$species == speciesx)
+  temp2 <- unique(temp$correctedCollector) 
+  surv_cov_species <- subset(surv_cov1, surv_cov1$collector %in% temp2)
+  save(surv_cov_species,
+       file = paste0("./", speciesx, "/surv_cov_species.RData"), version=2)
+
+  #Month filter
+  temp <- subset(deduplicated, deduplicated$species == speciesx)
+  temp2 <- unique(temp$month)
+  temp3 <- subset(collectors_of_species, collectors_of_species$collectedSpecies == 1)$collector
+  
+  surv_cov_month <- subset(surv_cov1, surv_cov1$month %in% temp2 | surv_cov1$collector %in% temp3)
+  save(surv_cov_month,
+       file = paste0("./", speciesx, "/surv_cov_month.RData"))
+}
+
+total_time <- Sys.time() - start_time
+```
+
+
+
+# FILL OUT PREV_DETECTED AND REFACTOR #####
+
+```{r fix some issues}
+
+for(speciesx in speciesList) {
+  
+  #Populate previously detected variable for surv_cov model 
+  load(paste0("./", speciesx, "/surv_cov3.RData"))
+  surv_cov <- surv_cov3
+  rm(surv_cov3)
+  surv_cov$index <- 1:length(surv_cov$county)
+  collectors <- unique(surv_cov$collector)
+  for (i in collectors) {
+    temp <- subset(surv_cov, surv_cov$collector == i)
+    counties <- unique(temp$county)
+    for (j in counties){
+      temp2 <- subset(temp, temp$county == j)
+      if (sum(temp2$h) == 0) {#collector has not seen this species in this county {
+        indices <- unique(temp2$index)
+        surv_cov$prev_detected[indices] <- 0
+      }
+      if (sum(temp2$h) > 0) { #collector HAS seen this species in this county}
+        indices <- unique(temp2$index)
+        surv_cov$prev_detected[indices[1]] <- 0
+        if(length(indices)>1) {surv_cov$prev_detected[indices[2:length(indices)]] <- 1}
+      }
+    }
+  }
+  
+  surv_cov$year <- factor(surv_cov$year)
+  surv_cov$collector <- factor(surv_cov$collector)
+  surv_cov3<-surv_cov
+  save(surv_cov3, file=paste0("./", speciesx, "/surv_cov3.RData"))
+  
+}
+  #######Not doing things underneath this
+  #Populate previously detected variable for surv_cov_species model:
+  load(paste0("./", speciesx, "/surv_cov_species.RData"))
+  surv_cov_species$index <- 1:length(surv_cov_species$county)
+  collectors <- unique(surv_cov_species$collector)
+  for (i in collectors) {
+    temp <- subset(surv_cov_species, surv_cov_species$collector == i)
+    counties <- unique(temp$county)
+    for (j in counties){
+      temp2 <- subset(temp, temp$county == j)
+      if (sum(temp2$h) == 0) {#collector has not seen this species in this county {
+        indices <- unique(temp2$index)
+        surv_cov_species$prev_detected[indices] <- 0
+      }
+      if (sum(temp2$h) > 0) { #collector HAS seen this species in this county}
+        indices <- unique(temp2$index)
+        surv_cov_species$prev_detected[indices[1]] <- 0
+        if(length(indices)>1) {surv_cov_species$prev_detected[indices[2:length(indices)]] <- 1}
+      }
+    }
+  }
+  surv_cov_species$year <- factor(surv_cov_species$year)
+  surv_cov_species$collector <- factor(surv_cov_species$collector)
+  save(surv_cov_species, file=paste0("./", speciesx, "/surv_cov_species.RData"))
+  
+  #Populate previously detected variable for surv_cov_genus model:
+  load(paste0("./", speciesx, "/surv_cov_genus.RData"))
+  surv_cov_genus$index <- 1:length(surv_cov_genus$county)
+  collectors <- unique(surv_cov_genus$collector)
+  for (i in collectors) {
+    temp <- subset(surv_cov_genus, surv_cov_genus$collector == i)
+    counties <- unique(temp$county)
+    for (j in counties){
+      temp2 <- subset(temp, temp$county == j)
+      if (sum(temp2$h) == 0) {#collector has not seen this species in this county {
+        indices <- unique(temp2$index)
+        surv_cov_genus$prev_detected[indices] <- 0
+      }
+      if (sum(temp2$h) > 0) { #collector HAS seen this species in this county}
+        indices <- unique(temp2$index)
+        surv_cov_genus$prev_detected[indices[1]] <- 0
+        if(length(indices)>1) {surv_cov_genus$prev_detected[indices[2:length(indices)]] <- 1}
+      }
+    }
+  }
+  surv_cov_genus$year <- factor(surv_cov_genus$year)
+  surv_cov_genus$collector <- factor(surv_cov_genus$collector)
+  save(surv_cov_genus, file=paste0("./", speciesx, "/surv_cov_genus.RData"))
+  
+  #Populate previously detected variable for surv_cov_month model:
+  load(paste0("./", speciesx, "/surv_cov_month.RData"))
+  surv_cov_month$index <- 1:length(surv_cov_month$county)
+  collectors <- unique(surv_cov_month$collector)
+  for (i in collectors) {
+    temp <- subset(surv_cov_month, surv_cov_month$collector == i)
+    counties <- unique(temp$county)
+    for (j in counties){
+      temp2 <- subset(temp, temp$county == j)
+      if (sum(temp2$h) == 0) {#collector has not seen this species in this county {
+        indices <- unique(temp2$index)
+        surv_cov_month$prev_detected[indices] <- 0
+      }
+      if (sum(temp2$h) > 0) { #collector HAS seen this species in this county}
+        indices <- unique(temp2$index)
+        surv_cov_month$prev_detected[indices[1]] <- 0
+        if(length(indices)>1) {surv_cov_month$prev_detected[indices[2:length(indices)]] <- 1}
+      }
+    }
+  }
+  surv_cov_month$year <- factor(surv_cov_month$year)
+  surv_cov_month$collector <- factor(surv_cov_month$collector)
+  save(surv_cov_month, file=paste0("./", speciesx, "/surv_cov_month.RData"))
+  
+  #Populate previously detected variable for surv_cov1 model:
+  load(paste0("./", speciesx, "/surv_cov1.RData"))
+  surv_cov1$index <- 1:length(surv_cov1$county)
+  collectors <- unique(surv_cov1$collector)
+  for (i in collectors) {
+    temp <- subset(surv_cov1, surv_cov1$collector == i)
+    counties <- unique(temp$county)
+    for (j in counties){
+      temp2 <- subset(temp, temp$county == j)
+      if (sum(temp2$h) == 0) {#collector has not seen this species in this county {
+        indices <- unique(temp2$index)
+        surv_cov1$prev_detected[indices] <- 0
+      }
+      if (sum(temp2$h) > 0) { #collector HAS seen this species in this county}
+        indices <- unique(temp2$index)
+        surv_cov1$prev_detected[indices[1]] <- 0
+        if(length(indices)>1) {surv_cov1$prev_detected[indices[2:length(indices)]] <- 1}
+      }
+    }
+  }
+  
+  surv_cov1$year <- factor(surv_cov1$year)
+  surv_cov1$collector <- factor(surv_cov1$collector)
+  save(surv_cov1, file=paste0("./", speciesx, "/surv_cov1.RData"))
+
+
+}
+
+
+```
+
+# PRISM DATA
+
+```{r prism}
+#1) Convert the original files downloaded from PRISM into the appropriate file type: #####
+
+#Only have to run this once
+
+var <- 'tmin'
+for (year in 2016:2018) {
+  
+  for (mo in 1:12) {
+  
+    r <- raster(paste0(workDir, 'PRISM/2 arcmin/ORIGINALS/', var, '/', year, '/', 'PRISM_', var, '_stable_4kmM3_', year, prefix(mo, 2), '_bil.bil'))
+ 
+    writeRaster(r, paste0(workDir,var, '/', 'PRISM_',var, '_stable_4kmM2_', year, prefix(mo, 2), '_bil'), format='GTiff', datatype='INT4S', overwrite=TRUE)
+    
+  }
+  
+}
+
+#2) Stack and calculate tmin_min annual temperature raster #####
+var <- 'tmin'
+fun <- 'min'
+
+
+
+albersNA <- '+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs'
+wgs84 <- '+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0'
+
+dirCreate <- function(...) base::dir.create(path=paste0(...), recursive=TRUE, showWarnings=FALSE)
+say <- function(..., pre=0, post=1) { cat(rep('\n', pre), ..., rep('\n', post)); flush.console() }
+
+prefix <- function(x, len, pre='0') {
+
+	# x		value to add leading characters (will be coerced to character class)
+	# len	desired number of characters in x... will not be made shorter if x is longer than this
+	# pre	value to pre-pend to x, will be repeated until nchar(x)==len
+	
+	x <- as.character(x)
+	size <- nchar(x)
+	if (nchar(x) < len) {
+		addTo <- paste(rep(pre, each=len - size), collapse='')
+		x <- paste0(addTo, x)
+	}
+	return(x)
+}
+
+var <- 'tmin'
+
+
+
+fun <- 'min'
+
+
+for (countYear in 1895:2018) {
+
+	say(countYear)
+
+	yearStack <- stack(list.files(paste(workDir, 'PRISM/2 arcmin/', var, sep=''),
+	                              pattern=paste('PRISM_', var, '_stable_4kmM2_', countYear, sep=''), countYear, full.names=T))
+
+	newRast <- if (fun=='mean') {
+		mean(yearStack)
+	} else if (fun=='max') {
+		max(yearStack)
+	} else if (fun=='min') {
+		min(yearStack)
+	} else if (fun=='sum') {
+		sum(yearStack)
+	}
+
+	newRast <- setMinMax(newRast)
+	projection(newRast) <- projection(yearStack)
+	
+	writeRaster(newRast, paste(workDir, 'PRISM/2 arcmin/', var, '/', var, '_annual_', fun, '/', var, '_', fun, '_', countYear, sep=''), format='GTiff', overwrite=T)
+	
+	rm(yearStack, newRast)
+	gc()
+	
+}
+
+
+#3) Clip rasters to florida #####
+
+
+
+load("./florida.RData")
+#rast <- crop(mat, florida)
+
+#for (i in 1895:2015) {
+ for(i in 1895:2018) { 
+  
+  # get the world raster
+  rast <- raster(paste0('./PRISM/2 arcmin/tmin/tmin_annual_min/tmin_min_',
+                         i, '.tif'))
+  
+  # crop the raster and update metadata
+  rast <- crop(rast, florida)
+  rast <- setMinMax(rast)
+  projection(rast) <-
+    '+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0'
+  
+  # save raster
+  writeRaster(
+    rast,
+    paste0('./PRISM/2 arcmin/florida/tmin_min_',
+           i), format='GTiff', datatype='INT2S',
+    overwrite=TRUE
+  )
+}
+
+
+tmin_min_avg <- matrix(nrow=67, ncol=124)
+#years <- 1895:2015
+years <- 1895:2018
+
+#Originally did 1895:2016. Now need to do 2016:2018
+#temp <- rep(NA, 67)
+#tmin_min_avg <- cbind(tmin_min_avg, thing, thing, thing)
+for(i in 1:124) {
+  print(paste('Calculating average county tmin for year: ', years[i]))
+  rast <- raster(paste0('./PRISM/2 arcmin/florida/tmin_min_',
+                        years[i], '.tif'))
+  
+  temp <- extract(rast, florida)
+  thing <-rep(NA, 67)
+  for (j in 1:67) {
+    thing[j] <- mean(temp[[j]], na.rm=T)
+  }
+  tmin_min_avg[,i] <- thing
+}
+
+save(tmin_min_avg, file="./PRISM/2 arcmin/florida/tmin_min_avg.RData")
+
+
+#Calculate average for each county over all 124 years. Composite_average_tmin_min represents the average of the 
+# minimum minimum temperature in a county across all 121 years from 1895-2015. 
+
+composite_average_tmin_min <- rep(NA, 67)
+for (i in 1:67) {
+  composite_average_tmin_min[i] <- mean(tmin_min_avg[i,])
+}
+
+save(composite_average_tmin_min, file="./composite_average_tmin_min.RData")
+
+
+```
+# Assemble the covariates associated with the counties
+
+```{r county covariates, eval=F }
+unit_cov <- data.frame(
+  county = rep(NA, 67),
+  pop2010 = rep(NA, 67),
+  tmin_min_avg = rep(NA, 67),
+  area = rep(NA, 67)
+)
+
+#Human Population Density
+load("census_2010.RData")
+census_2010 <- census_2010[order(census_2010$county),]
+
+unit_cov$county <- florida$NAME_2
+unit_cov$pop2010 <- census_2010$PCT001001
+
+#Average Minimum Temperature 
+load("./composite_average_tmin_min.RData")
+unit_cov$tmin_min_avg <- composite_average_tmin_min
+
+#County area
+
+florida2 <- spTransform(florida, CRS("+init=epsg:26978")) 
+unit_cov$area <- gArea(florida2, byid=T)
+save(unit_cov, file="./unit_cov.RData")
+
+
+unit_cov3 <- unit_cov
+# Standardize the unit_cov statistics: 
+hist(unit_cov$area)
+hist(unit_cov$pop2010)
+#Both of these seem to have extreme outliers, so first I will log transform population size and area before z-transforming
+
+unit_cov2 <- unit_cov
+
+
+unit_cov3$pop2010 <- log(unit_cov$pop2010)
+unit_cov3$area    <- log(unit_cov$area)
+unit_cov3$tmin_min_avg <- log(unit_cov$tmin_min_avg)
+
+hist(unit_cov2$pop2010)
+hist(unit_cov2$area)
+
+
+mean(unit_cov2$pop2010)
+sd(unit_cov2$pop2010)
+
+unit_cov2$pop2010 <- standardize(unit_cov3$pop2010)
+unit_cov2$tmin_min_avg <- standardize(unit_cov3$tmin_min_avg)
+unit_cov2$area <- standardize(unit_cov3$area)
+
+
+save(unit_cov2, file="./unit_cov2.RData")
+```
