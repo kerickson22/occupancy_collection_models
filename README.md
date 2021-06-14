@@ -20,32 +20,30 @@ Preprint available at https://www.biorxiv.org/content/10.1101/2021.01.06.425644v
 - **listCollectors_refined.csv**:A lookup table that includes collector names that were corrected and cleaned using openRefine. 3 columns: Column: numeric rownames for each occurrence, gbifID(the unique identifier assigned by GBIF to each occurrence record), recordedBy (the corrected collector names)
 -**unit_cov2.RData**: Site covariates
 
-Each folder has its own folder that contains information about collectors of that species (*collectors_of_species.RData*), detection data from the full data set (*surv_cov.RData*) and detection data that has been filtered (*surv_cov3.RData*)
-- **MANIND\**
-  + **collectors_of_species.RData**
-  + **surv_cov.RData**
-  + **surv_cov3.RData**
-- **METTOX\**
-  + **collectors_of_species.RData**
-  + **surv_cov.RData**
-  + **surv_cov3.RData**
-- **RHUCOP\**
-  + **collectors_of_species.RData**
-  + **surv_cov.RData**
-  + **surv_cov3.RData**
-- **SCHTER\**
-  + **collectors_of_species.RData**
-  + **surv_cov.RData**
-  + **surv_cov3.RData**
-- **TOXPUB\**
-  + **collectors_of_species.RData**
-  + **surv_cov.RData**
-  + **surv_cov3.RData**
-- **TOXRAD\**
-  + **collectors_of_species.RData**
-  + **surv_cov.RData**
-  + **surv_cov3.RData**
-- **TOXVER\**
-  + **collectors_of_species.RData**
-  + **surv_cov.RData**
-  + **surv_cov3.RData**
+Each species has 3 associated datasets: 
+ - **SPECIES_collectors_of_species.RData**: Collector covariates for that species. 
+  + collector: collector name
+  + totalRecords: Total number of (deduplicated) Tracheophyte occurrences collected by that collector
+  + totalSpecies: Number of unique species collected by that collector
+  + totalGenera: Number of unique genera collected by that collector
+  + totalFamilies: Number of unique families collected by that collector
+  + collectedSpecies: Indicator variable for whether that collector collected SPECIES. 1= YES, 0=NO
+  + yearsActive: Number of unique years (not necessarily sequentially) in which the collector collected at least one Tracheophyte in Florida
+ - **SPECIES_surv_cov.RData**: detection data from the full data set
+  + county: county name
+  + year: collection year
+  + month: collection month
+  + collector: collector name
+  + prev_detected: Indicator variable for whether the collector has previously detected SPECIES in that county, 1 = YES, 0 = NO
+  + citizen_scientist: Indicator variable, 1 = occurrence record comes from a citizen science data portal, 0 = occurrence record comes from a herbarium specimen
+  + num_species: number of unique species collected
+  + h: indicator variable for whether SPECIES was detected, 1 = YES, 0 = NO
+  + index: indexing number
+ - **SPECIES_surv_cov3.RData**: detection data from the filtered data set
+ MANIND = _Mangifera indica_
+ METTOX = _Metopium toxiferum_
+ RHUCOP = _Rhus copallina_
+ SCHTER = _Schinus terebinthifolia_
+ TOXPUB = _Toxicodendron pubescens_
+ TOXRAD = _Toxicodendron radicans_
+ TOXVEr = _Toxicodendron vernix_
