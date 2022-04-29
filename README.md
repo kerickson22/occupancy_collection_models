@@ -1,5 +1,6 @@
 Erickson, Kelley D. & Adam B. Smith Accounting for imperfect detection in data from museums and herbaria when modeling species distributions: Combining and contrasting data-level versus model-level bias correction. Ecography 
 
+Published manuscript available at:  https://doi.org/10.1111/ecog.05679
 Preprint available at https://www.biorxiv.org/content/10.1101/2021.01.06.425644v1 
 
 
